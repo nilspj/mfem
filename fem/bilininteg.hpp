@@ -2923,6 +2923,60 @@ public:
                            const Vector &elfun) override;
 };
 
+/** Integrator for $(\mathrm{curl}(u), v)$ for FE spaces defined by 'dim' copies of a
+    scalar FE space. */
+class VectorCurlIntegrator: public BilinearFormIntegrator
+{
+private:
+#ifndef MFEM_THREAD_SAFE
+   DenseMatrix dshape_hat, dshape, curlshape, Jadj, grad_hat, grad;
+#endif
+
+protected:
+   Coefficient *Q;
+
+public:
+   VectorCurlIntegrator() { Q = NULL; }
+
+   VectorCurlIntegrator(Coefficient &q) : Q(&q) { }
+
+   /// Assemble an element matrix
+   void AssembleElementMatrix(const FiniteElement &el,
+                              ElementTransformation &Trans,
+                              DenseMatrix &elmat) override;
+   /// Compute element energy: $ \frac{1}{2} (\mathrm{curl}(u), u)_E$
+   real_t GetElementEnergy(const FiniteElement &el,
+                           ElementTransformation &Tr,
+                           const Vector &elfun) override;
+};
+
+/** Integrator for $(u,\mathrm{curl}(v))$ for FE spaces defined by 'dim' copies of a
+    scalar FE space. */
+class VectorWeakCurlIntegrator: public BilinearFormIntegrator
+{
+private:
+#ifndef MFEM_THREAD_SAFE
+   DenseMatrix dshape_hat, dshape, curlshape, Jadj, grad_hat, grad;
+#endif
+
+protected:
+   Coefficient *Q;
+
+public:
+   VectorWeakCurlIntegrator() { Q = NULL; }
+
+   VectorWeakCurlIntegrator(Coefficient &q) : Q(&q) { }
+
+   /// Assemble an element matrix
+   void AssembleElementMatrix(const FiniteElement &el,
+                              ElementTransformation &Trans,
+                              DenseMatrix &elmat) override;
+   /// Compute element energy: $ \frac{1}{2} (u,\mathrm{curl}(u))_E$
+   real_t GetElementEnergy(const FiniteElement &el,
+                           ElementTransformation &Tr,
+                           const Vector &elfun) override;
+};
+
 /** Class for integrating the bilinear form $a(u,v) := (Q \mathrm{curl}(u), v)$ where $Q$ is
     an optional scalar coefficient, and $v$ is a vector with components $v_i$ in
     the $L_2$ or $H^1$ space. This integrator handles 3 cases:

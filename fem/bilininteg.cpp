@@ -2549,6 +2549,136 @@ real_t VectorCurlCurlIntegrator::GetElementEnergy(
    return 0.5 * energy;
 }
 
+void VectorCurlIntegrator::AssembleElementMatrix(
+   const FiniteElement &el, ElementTransformation &Trans, DenseMatrix &elmat)
+{
+   int dim = el.GetDim();
+   int dof = el.GetDof();
+   int cld = (dim*(dim-1))/2;
+
+#ifdef MFEM_THREAD_SAFE
+   DenseMatrix dshape_hat(dof, dim), dshape(dof, dim);
+   DenseMatrix curlshape(dim*dof, cld), Jadj(dim);
+   DenseMatrix vshape(dim*dof,cld);
+   Vector shape(dof);
+#else
+   dshape_hat.SetSize(dof, dim);
+   dshape.SetSize(dof, dim);
+   curlshape.SetSize(dim*dof, cld);
+   Jadj.SetSize(dim);
+   shape.SetSize(dof);
+   vshape.SetSize(dim*dof,cld);
+#endif
+
+
+   const IntegrationRule *ir = GetIntegrationRule(el, Trans);
+   if (ir == NULL)
+   {
+      // use the same integration rule as diffusion
+      int order = 2 * Trans.OrderGrad(&el);
+      ir = &IntRules.Get(el.GetGeomType(), order);
+   }
+
+   elmat.SetSize(dof*dim);
+   elmat = 0.0;
+   for (int i = 0; i < ir->GetNPoints(); i++)
+   {
+      const IntegrationPoint &ip = ir->IntPoint(i);
+      Trans.SetIntPoint(&ip);
+
+      // calculate Curl N x J^-1
+      el.CalcDShape(ip, dshape_hat);
+      CalcAdjugate(Trans.Jacobian(), Jadj);
+
+      Mult(dshape_hat, Jadj, dshape);
+      dshape.GradToCurl(curlshape);
+
+      // setup N
+      el.CalcShape(ip, shape);
+      vshape = 0.0;
+      for (int d = 0; d < dim; d++)
+      {
+            for (int k = 0; k < dof; k++) {
+               vshape(d*dof + k, d) = shape(k);
+            }
+      }
+
+      // compute weight
+      real_t w = ip.weight;
+      if (Q)
+      {
+         w *= Q->Eval(Trans, ip);
+      }
+
+      AddMult_a_ABt(w,vshape,curlshape,elmat);
+   }
+}
+
+void VectorWeakCurlIntegrator::AssembleElementMatrix(
+   const FiniteElement &el, ElementTransformation &Trans, DenseMatrix &elmat)
+{
+   int dim = el.GetDim();
+   int dof = el.GetDof();
+   int cld = (dim*(dim-1))/2;
+
+#ifdef MFEM_THREAD_SAFE
+   DenseMatrix dshape_hat(dof, dim), dshape(dof, dim);
+   DenseMatrix curlshape(dim*dof, cld), Jadj(dim);
+   DenseMatrix vshape(dim*dof,cld);
+   Vector shape(dof);
+#else
+   dshape_hat.SetSize(dof, dim);
+   dshape.SetSize(dof, dim);
+   curlshape.SetSize(dim*dof, cld);
+   Jadj.SetSize(dim);
+   shape.SetSize(dof);
+   vshape.SetSize(dim*dof,cld);
+#endif
+
+
+   const IntegrationRule *ir = GetIntegrationRule(el, Trans);
+   if (ir == NULL)
+   {
+      // use the same integration rule as diffusion
+      int order = 2 * Trans.OrderGrad(&el);
+      ir = &IntRules.Get(el.GetGeomType(), order);
+   }
+
+   elmat.SetSize(dof*dim);
+   elmat = 0.0;
+   for (int i = 0; i < ir->GetNPoints(); i++)
+   {
+      const IntegrationPoint &ip = ir->IntPoint(i);
+      Trans.SetIntPoint(&ip);
+
+      // calculate Curl N x J^-1
+      el.CalcDShape(ip, dshape_hat);
+      CalcAdjugate(Trans.Jacobian(), Jadj);
+
+      Mult(dshape_hat, Jadj, dshape);
+      dshape.GradToCurl(curlshape);
+
+      // setup N
+      el.CalcShape(ip, shape);
+      vshape = 0.0;
+      for (int d = 0; d < dim; d++)
+      {
+            for (int k = 0; k < dof; k++) {
+               vshape(d*dof + k, d) = shape(k);
+            }
+      }
+
+      // compute weight
+      real_t w = ip.weight;
+      if (Q)
+      {
+         w *= Q->Eval(Trans, ip);
+      }
+
+      AddMult_a_ABt(w,curlshape,vshape,elmat);
+   }
+}
+
 void MixedCurlIntegrator::AssembleElementMatrix2(
    const FiniteElement &trial_fe, const FiniteElement &test_fe,
    ElementTransformation &Trans, DenseMatrix &elmat)
